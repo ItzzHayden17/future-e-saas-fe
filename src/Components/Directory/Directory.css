@@ -1,0 +1,10 @@
+.Directory{
+    background-color: #D7D7D7;
+
+    p{
+        all: unset;
+        font-weight: light;
+        font-size: 10px;
+        padding: 2px 5px;
+    }
+}

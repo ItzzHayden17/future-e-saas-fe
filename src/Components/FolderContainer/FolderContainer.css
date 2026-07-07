@@ -1,0 +1,60 @@
+.FolderContainer {
+    height: 85%;
+    overflow-y: scroll;
+    border-right: solid 2px #000000;
+    width: 100%;
+img {
+    height: 16px;
+    width: 16px;
+    vertical-align: middle;
+}
+
+.fixed{
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    padding: 5px;
+}
+    .headers{
+    margin: 10px;
+    font-weight: bold;
+    font-size: 12px;
+
+    display: flex;
+    flex-direction: row;
+    align-items: center; /* keeps everything vertically centered */
+
+    .name {
+    width: 70%;
+    display: flex;
+    align-items: center;
+    gap: 50%; /* spacing between icon and text */
+}
+
+
+
+.dateModified {
+    width: 15%;
+}
+
+.user {
+    width: 15%;
+}
+
+p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+        .clickable {
+            cursor: pointer;
+        }
+
+        .clickable:hover {
+            background-color: #f0f0f0;
+        }
+    }
+
+}

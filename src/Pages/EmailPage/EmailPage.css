@@ -1,0 +1,102 @@
+.Email {
+
+  
+min-height: 100vh;
+background: #f5f7fb;
+  
+
+}
+
+.Email .email-container {
+
+  
+max-width: 1000px;
+margin: auto;
+padding: 20px;
+  
+
+}
+
+.Email .subject-input,
+.Email textarea,
+.Email .search-input {
+
+  
+width: 100%;
+padding: 12px;
+margin-bottom: 12px;
+
+border: 1px solid #ddd;
+border-radius: 8px;
+  
+
+}
+
+.Email textarea {
+
+  
+min-height: 180px;
+resize: vertical;
+  
+
+}
+
+.Email .client-list {
+
+  
+max-height: 400px;
+overflow-y: auto;
+
+display: flex;
+flex-direction: column;
+gap: 10px;
+
+margin-top: 15px;
+  
+
+}
+
+.Email .client-item {
+
+  
+display: flex;
+align-items: center;
+gap: 15px;
+
+padding: 15px;
+
+border: 1px solid #ddd;
+border-radius: 8px;
+
+background: white;
+  
+
+}
+
+.Email .send-btn {
+
+  
+margin-top: 20px;
+
+width: 100%;
+
+padding: 14px;
+
+border: none;
+border-radius: 8px;
+
+background: #000000;
+color: white;
+
+cursor: pointer;
+  
+
+}
+
+.Email .send-btn:hover {
+
+  
+background: #000000;
+  
+
+}
