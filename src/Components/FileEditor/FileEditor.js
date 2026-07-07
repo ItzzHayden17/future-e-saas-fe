@@ -74,7 +74,9 @@ const config = {
 
   editorConfig: {
     mode: "edit",
-    callbackUrl: `http://host.docker.internal:8080/save-file`
+    // callbackUrl: `http://host.docker.internal:8080/save-file`
+    callbackUrl: `https://documentserver-latest-523p.onrender.com`
+    
   }
 };
 
