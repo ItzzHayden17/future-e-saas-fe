@@ -9,10 +9,14 @@ import Navbar from './Components/Navbar/Navbar';
 import Sms from './Components/Sms/Sms';
 import Email from './Pages/EmailPage/EmailPage';
 import ProtectedRoute from './ProtectedRoute/ProtectedRoute';
+import { useEffect } from 'react';
+import ClientPage from './Pages/Clients/ClientPage';
+import LogsPage from './Pages/Log/LogsPage';
 
 
 function App() {
   
+
   return (
     <div className="App">
       <BrowserRouter>
@@ -21,6 +25,8 @@ function App() {
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/sms" element={<ProtectedRoute><Sms /></ProtectedRoute>} />
         <Route path="/email" element={<ProtectedRoute><Email /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><ClientPage/></ProtectedRoute>} />
+        <Route path="/logpage" element={<ProtectedRoute><LogsPage/></ProtectedRoute>} />
       </Routes>
       </BrowserRouter>
       <ToastContainer />

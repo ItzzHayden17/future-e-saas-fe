@@ -1,0 +1,20 @@
+.FileEditor{
+    height: 100%;
+
+    .close-file-editor{
+        
+        all: unset;
+        padding: 3px 6px;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background-color: white;
+        border-radius: 5px;
+        font-weight: bolder;
+    }
+
+    .close-file-editor:hover{
+        color: white;
+        background-color: black;
+    }
+}

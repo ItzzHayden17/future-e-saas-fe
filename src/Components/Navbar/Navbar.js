@@ -62,6 +62,16 @@ const Navbar = () => {
           textDecoration: location.pathname === "/Email" ? "underline" : "none",
           fontWeight: location.pathname === "/SMS" ? "bold" : "normal"
         }}>Email</Link>
+        <Link to="/clients" style={{
+          textDecoration: location.pathname === "/clients" ? "underline" : "none",
+          fontWeight: location.pathname === "/clients" ? "bold" : "normal"
+        }}>Clients
+        </Link>
+        <Link to="/logpage" style={{
+          textDecoration: location.pathname === "/logpage" ? "underline" : "none",
+          fontWeight: location.pathname === "/logpage" ? "bold" : "normal"
+        }}>Logs
+        </Link>
         </div>
         <div className='company-logo'>
             <img src="/assets/black_logo_with_text.png"/>

@@ -8,6 +8,10 @@
     justify-content: space-between;
 
     .folder-page {
+      width: 100%;
+    }
+
+    .folder-page.file-open {
       width: 50%;
       border-right: solid 2px #000000;
     }

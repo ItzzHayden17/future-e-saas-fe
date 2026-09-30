@@ -1,0 +1,309 @@
+.Logs {
+  min-height: 100vh;
+  background: #f5f6fa;
+}
+
+.logs-container {
+  padding: 30px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+
+/* ============================= */
+/* HEADER */
+/* ============================= */
+
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.logs-header h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #222;
+}
+
+.logs-header p {
+  margin: 5px 0 0;
+  color: #777;
+  font-size: 14px;
+}
+
+
+/* ============================= */
+/* ACTIONS */
+/* ============================= */
+
+.logs-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.refresh-btn {
+  border: none;
+  background: #6c3df5;
+  color: white;
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.refresh-btn:hover {
+  background: #5730d4;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+
+/* ============================= */
+/* SEARCH */
+/* ============================= */
+
+.logs-search {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 13px 16px;
+
+  border: 1px solid #ddd;
+  border-radius: 9px;
+
+  background: white;
+
+  font-size: 14px;
+
+  outline: none;
+
+  margin-bottom: 20px;
+
+  transition: 0.2s ease;
+}
+
+.logs-search:focus {
+  border-color: #6c3df5;
+  box-shadow:
+    0 0 0 3px rgba(108, 61, 245, 0.08);
+}
+
+
+/* ============================= */
+/* TABLE CONTAINER */
+/* ============================= */
+
+.logs-table-wrapper {
+  background: white;
+
+  border-radius: 12px;
+
+  border: 1px solid #e5e5e5;
+
+  overflow-x: auto;
+
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.04);
+}
+
+
+/* ============================= */
+/* TABLE */
+/* ============================= */
+
+.logs-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  min-width: 800px;
+}
+
+.logs-table thead {
+  background: #f8f8fb;
+}
+
+.logs-table th {
+  padding: 15px 18px;
+
+  text-align: left;
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.4px;
+
+  color: #666;
+
+  border-bottom: 1px solid #e5e5e5;
+
+  white-space: nowrap;
+}
+
+.logs-table td {
+  padding: 15px 18px;
+
+  font-size: 14px;
+
+  color: #333;
+
+  border-bottom: 1px solid #eeeeee;
+
+  vertical-align: middle;
+}
+
+.logs-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.logs-table tbody tr:hover {
+  background: #faf9ff;
+}
+
+.logs-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+
+/* ============================= */
+/* LOG USER */
+/* ============================= */
+
+.log-user {
+  display: inline-flex;
+
+  align-items: center;
+
+  padding: 5px 9px;
+
+  border-radius: 6px;
+
+  background: #f0edff;
+
+  color: #5c36d6;
+
+  font-weight: 600;
+
+  font-size: 13px;
+}
+
+
+/* ============================= */
+/* ROUTE */
+/* ============================= */
+
+.log-route {
+  display: inline-block;
+
+  padding: 5px 9px;
+
+  border-radius: 6px;
+
+  background: #f1f3f5;
+
+  color: #555;
+
+  font-family:
+    Consolas,
+    "Courier New",
+    monospace;
+
+  font-size: 12px;
+}
+
+
+/* ============================= */
+/* ACTION */
+/* ============================= */
+
+.log-action {
+  color: #333;
+
+  line-height: 1.5;
+}
+
+
+/* ============================= */
+/* LOADING */
+/* ============================= */
+
+.logs-loading {
+  text-align: center;
+
+  padding: 50px !important;
+
+  color: #777;
+
+  font-size: 14px;
+}
+
+
+/* ============================= */
+/* EMPTY */
+/* ============================= */
+
+.no-logs {
+  text-align: center;
+
+  padding: 50px !important;
+
+  color: #999;
+
+  font-size: 14px;
+}
+
+
+/* ============================= */
+/* FOOTER */
+/* ============================= */
+
+.logs-footer {
+  margin-top: 15px;
+
+  text-align: right;
+
+  color: #777;
+
+  font-size: 13px;
+}
+
+.logs-footer strong {
+  color: #333;
+}
+
+
+/* ============================= */
+/* MOBILE */
+/* ============================= */
+
+@media (max-width: 768px) {
+
+  .logs-container {
+    padding: 20px 15px;
+  }
+
+  .logs-header {
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .logs-header h2 {
+    font-size: 23px;
+  }
+
+  .refresh-btn {
+    padding: 9px 13px;
+  }
+
+}

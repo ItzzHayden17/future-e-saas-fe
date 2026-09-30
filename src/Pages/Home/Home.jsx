@@ -8,77 +8,82 @@ import FolderContainer from '../../Components/FolderContainer/FolderContainer'
 import FileEditor from '../../Components/FileEditor/FileEditor'
 
 function Home() {
-    const [user, setUser] = useState({})
-    const [selectedFile, setSelectedFile] = useState(null)
+    const [user, setUser] = useState({});
+    const [selectedFile, setSelectedFile] = useState(null);
 
-    useEffect(() => {
-        try {
-            const userData = Cookies.get("userData")
-
-            axios.post(`${serverUrl}verify-token`, {
-                token: userData ? JSON.parse(userData).token : null
-            }).then(res => {
-                console.log(res.data.status + " " + res.data.message)
-
-                if (res.data.status !== 'success') {
-                    window.location.href = '/'
-                } else {
-                    setUser(res.data.decoded)
-                    console.log(res.data.decoded)
-                }
-            })
-        } catch (error) {
-            console.log(error)
-            window.location.href = '/'
-        }
-    }, [])
+    // ...
 
     function openFile(fileData) {
-        setSelectedFile(fileData)
-        console.log(fileData);
-        
+        setSelectedFile(fileData);
+    }
+
+    function closeEditor() {
+        setSelectedFile(null);
     }
 
     const getDocType = (ext) => {
-    switch (ext) {
-        case "docx":
-            return "word";
-        case "xlsx":
-            return "cell";
-        case "pptx":
-            return "slide";
-        default:
-            return "word";
-    }
-};
-console.log("selectedFile", selectedFile);
+        switch (ext) {
+            case "docx":
+            case "doc":
+                return "word";
+
+            case "xlsx":
+            case "xls":
+                return "cell";
+
+            case "pptx":
+            case "ppt":
+                return "slide";
+
+            default:
+                return "word";
+        }
+    };
+
     return (
-        <div className='Home'>
+        <div className="Home">
             <Navbar />
 
-            <div className='home-container'>
-                <div className='folder-page'>
-                    <FolderContainer onFileSelect={openFile} />
+            <div className="home-container">
+
+                <div
+                    className="folder-page"
+                    id="folder-page"
+                    style={{
+                        width: selectedFile ? "50%" : "100%",
+                        borderRight: selectedFile
+                            ? "solid 2px #000000"
+                            : "none"
+                    }}
+                >
+                    <FolderContainer
+                        onFileSelect={openFile}
+                    />
                 </div>
 
-                <div className='content'>
-    {selectedFile ? (
-        <>
-        <FileEditor
-    documentId={selectedFile.id}
-    name={selectedFile.name}
-    fileType={selectedFile.ext}
-    docType={getDocType(selectedFile.ext)}
-    updatedAt={selectedFile.updatedAt}
-/>
-        </>
-    ) : (
-        <>Please select a file</>
-    )}
-</div>
+                {selectedFile && (
+                    <div
+                        className="content"
+                        id="file-editor-home"
+                        style={{
+                            width: "50%",
+                            height: "100%"
+                        }}
+                    >
+                        <FileEditor
+                            onClose={closeEditor}
+                            documentId={selectedFile.id}
+                            name={selectedFile.name}
+                            fileType={selectedFile.ext}
+                            docType={getDocType(selectedFile.ext)}
+                            updatedAt={selectedFile.updatedAt}
+                        />
+                    </div>
+                )}
+
             </div>
         </div>
-    )
+    );
 }
 
 export default Home

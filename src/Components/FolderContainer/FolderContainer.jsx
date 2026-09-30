@@ -1,124 +1,307 @@
 import "./FolderContainer.css";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import SearchBar from "../SearchBar/SearchBar";
 import Directory from "../Directory/Directory";
 import axios from "axios";
-import { serverUrl } from '../../serverUrl'
+import Cookies from "js-cookie";
+import { serverUrl } from "../../serverUrl";
 
 const FolderContainer = (props) => {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
-  const [directory, setDirectory] = useState("/root");
+
+  const [directory, setDirectory] = useState(() => {
+    return Cookies.get("currentDirectory") || "/root";
+  });
+
   const [loading, setLoading] = useState(false);
-  
-useEffect(() => {
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  const cacheKey = `nodes_${directory}`;
+  const amendmentOpened = useRef(false);
+  const typeBuffer = useRef("");
+  const typeTimeout = useRef(null);
 
-  // Load cache immediately
-  const cachedData =
-    localStorage.getItem(cacheKey);
+  useEffect(() => {
+    Cookies.set("currentDirectory", directory, {
+      expires: 30,
+    });
+  }, [directory]);
 
-  if (cachedData) {
+  useEffect(() => {
+    amendmentOpened.current = false;
+    typeBuffer.current = "";
+    setSelectedItem(null);
+  }, [directory]);
 
-    try {
+  useEffect(() => {
+    const cacheKey = `nodes_${directory}`;
 
-      setData(JSON.parse(cachedData));
+    const cachedData = localStorage.getItem(cacheKey);
 
-    } catch (err) {
-
-      console.error(err);
+    if (cachedData) {
+      try {
+        setData(JSON.parse(cachedData));
+      } catch (err) {
+        console.error(err);
+      }
     }
-  }
 
-  // Always fetch latest
-  const fetchData = async () => {
+    const fetchData = async () => {
+      setLoading(true);
 
-    try {
-
-      const res = await axios.get(
-        `${serverUrl}api/files`,
-        {
+      try {
+        const res = await axios.get(`${serverUrl}api/files`, {
           params: {
-            path: directory
-          }
-        }
-      );
+            path: directory,
+          },
+        });
 
-      setData(res.data);
+        setData(res.data);
 
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify(res.data)
-      );
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify(res.data)
+        );
 
-      console.log(
-        `Updated cache for ${directory}`
-      );
+        console.log(`Updated cache for ${directory}`);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    } catch (err) {
+    fetchData();
+  }, [directory]);
 
-      console.error(err);
+  useEffect(() => {
+    if (!data || data.length === 0) {
+      return;
     }
-  };
 
-  fetchData();
+    if (amendmentOpened.current) {
+      return;
+    }
 
-}, [directory]);
+    const amendmentFile = data.find((item) => {
+      return (
+        item.type === "file" &&
+        item.name?.toLowerCase().includes("amendment")
+      );
+    });
 
-  // ✅ only store search text
+    if (amendmentFile) {
+      amendmentOpened.current = true;
+      props.onFileSelect(amendmentFile);
+      setSelectedItem(amendmentFile.path || amendmentFile.name);
+    }
+  }, [data, props]);
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      if (event.key.length !== 1) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      const character = event.key.toLowerCase();
+
+      typeBuffer.current += character;
+
+      clearTimeout(typeTimeout.current);
+
+      typeTimeout.current = setTimeout(() => {
+        typeBuffer.current = "";
+      }, 1000);
+
+      const searchValue = typeBuffer.current;
+
+      const match = data.find((item) => {
+        const name = item.name?.toLowerCase() || "";
+
+        return name.startsWith(searchValue);
+      });
+
+      if (match) {
+        setSelectedItem(match.path || match.name);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(typeTimeout.current);
+    };
+  }, [data]);
+
   function onChange(value) {
     setSearch(value.toLowerCase());
   }
 
-  // ✅ derived filtered data (NO state mutation)
   const filteredData = data.filter((item) => {
+    const name = item.name?.toLowerCase() || "";
+    const user = item.lastEditedBy?.toLowerCase() || "";
+
     return (
-      item.name.toLowerCase().includes(search) ||
-      item.lastEditedBy.toLowerCase().includes(search)
+      name.includes(search) ||
+      user.includes(search)
     );
   });
 
+  const displayedData = [...filteredData];
 
-  function openFile(fileData){
-    props.onFileSelect(fileData)
+  function openFile(fileData) {
+    setSelectedItem(fileData.path || fileData.name);
+    props.onFileSelect(fileData);
   }
 
+  function handleItemClick(item) {
+    if (item.type === "folder") {
+      setSelectedItem(item.path || item.name);
+      setDirectory(item.path);
+      return;
+    }
+
+    if (item.type === "file") {
+      openFile(item);
+    }
+  }
 
   return (
     <div className="FolderContainer">
-        <Directory path={directory} setDirectory={setDirectory} />
-      {/* Header */}
+
+      <Directory
+        path={directory}
+        setDirectory={setDirectory}
+      />
+
       <div className="headers fixed">
+
         <div className="name jc-sa">
-          Name: <SearchBar onChange={onChange} />
+          <span>Name:</span>
+          <SearchBar onChange={onChange} />
         </div>
-        <div className="dateModified">Date Modified:</div>
-        <div className="user">User:</div>
+
+        <div className="dateModified">
+          Date Modified:
+        </div>
+
+        <div className="user">
+          User:
+        </div>
+
       </div>
 
-      {/* List */}
-      {filteredData.map((item, index) => {
+      {displayedData.map((item, index) => {
+
+        const itemKey = item.path || item.name || index;
+
+        const isSelected =
+          selectedItem === itemKey;
+
         return (
-          <div className="headers" key={index}>
-<div
-  className="name clickable"
-  onClick={item.type === "folder" ? () => setDirectory(item.path) : item.type ==="file" ? ()=>{openFile(item)} : null}
->              <div style={{ display: "flex", alignItems: "center" }}>
+          <div
+            className="headers"
+            key={itemKey}
+            style={{
+              border: isSelected
+                ? "2px solid black"
+                : "2px solid transparent",
+              boxSizing: "border-box",
+            }}
+          >
+
+            <div
+              className="name clickable"
+              onClick={() => handleItemClick(item)}
+            >
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+
                 {item.type === "folder" ? (
-                  <img src="/assets/folder.svg" alt="folder" />
+
+                  <img
+                    src="/assets/folder.svg"
+                    alt="folder"
+                    title="Folder"
+                  />
+
                 ) : item.ext === "txt" ? (
-                  <img src="/assets/txt.svg" alt="txt" />
+
+                  <img
+                    src="/assets/txt.svg"
+                    alt="txt"
+                    title="Text Document"
+                  />
+
                 ) : item.ext === "xlsx" ? (
-                  <img src="/assets/exl.svg" alt="excel" />
-                ) : item.ext === "docx" ? (
-                  <img src="/assets/wrd.svg" alt="word" />
+
+                  <img
+                    src="/assets/exl.svg"
+                    alt="excel"
+                    title="Excel spreadsheet"
+                    style={{
+                      filter:
+                        "brightness(0) saturate(100%) invert(39%) sepia(32%) saturate(1100%) hue-rotate(100deg) brightness(85%) contrast(90%)",
+                    }}
+                  />
+
+                ) : item.ext === "docx" ||
+                  item.ext === "doc" ? (
+
+                  <img
+                    src="/assets/wrd.svg"
+                    alt="word"
+                    title="Word Document"
+                    style={{
+                      filter:
+                        "brightness(0) saturate(100%) invert(35%) sepia(90%) saturate(1200%) hue-rotate(190deg)",
+                    }}
+                  />
+
+                ) : item.ext === "pdf" ? (
+
+                  <img
+                    src="/assets/pdf.svg"
+                    alt="pdf"
+                    title="PDF Document"
+                  />
+
                 ) : (
-                  <img src="/assets/file.svg" alt="file" />
+
+                  <img
+                    src="/assets/uknown.svg"
+                    alt="file"
+                    title="Unknown Document"
+                  />
+
                 )}
 
-                <p style={{ marginLeft: "10px" }}>{item.name}</p>
+                <p style={{ marginLeft: "10px" }}>
+                  {item.name}
+                </p>
+
               </div>
+
             </div>
 
             <div className="dateModified">
@@ -128,9 +311,11 @@ useEffect(() => {
             <div className="user">
               <p>{item.lastEditedBy}</p>
             </div>
+
           </div>
         );
       })}
+
     </div>
   );
 };

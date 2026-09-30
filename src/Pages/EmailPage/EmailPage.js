@@ -21,7 +21,11 @@ useEffect(() => {
 
     axios.get(`${serverUrl}clients`)
         .then((data) => {
-            setClients(data.data)
+                  setClients(
+        Array.isArray(data.data)
+          ? data.data
+          : data.data.clients || []
+      );
         })
         .catch(console.error)
 
