@@ -12,6 +12,7 @@ import ProtectedRoute from './ProtectedRoute/ProtectedRoute';
 import { useEffect } from 'react';
 import ClientPage from './Pages/Clients/ClientPage';
 import LogsPage from './Pages/Log/LogsPage';
+import ClaimsPage from './Pages/Claims/ClaimsPage';
 
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/email" element={<ProtectedRoute><Email /></ProtectedRoute>} />
         <Route path="/clients" element={<ProtectedRoute><ClientPage/></ProtectedRoute>} />
         <Route path="/logpage" element={<ProtectedRoute><LogsPage/></ProtectedRoute>} />
+        <Route path="/claims" element={<ProtectedRoute><ClaimsPage/></ProtectedRoute>} />
       </Routes>
       </BrowserRouter>
       <ToastContainer />

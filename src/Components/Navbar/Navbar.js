@@ -72,6 +72,11 @@ const Navbar = () => {
           fontWeight: location.pathname === "/logpage" ? "bold" : "normal"
         }}>Logs
         </Link>
+        <Link to="/claims" style={{
+          textDecoration: location.pathname === "/claims" ? "underline" : "none",
+          fontWeight: location.pathname === "/claims" ? "bold" : "normal"
+        }}>Claims
+        </Link>
         </div>
         <div className='company-logo'>
             <img src="/assets/black_logo_with_text.png"/>

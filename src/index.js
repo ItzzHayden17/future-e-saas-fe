@@ -7,11 +7,10 @@ import { InputProvider } from './Contexts/InputContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
-  <React.StrictMode>
     <InputProvider>
     <App />
     </InputProvider>
-  </React.StrictMode>
+
 );
 
 // If you want to start measuring performance in your app, pass a function
