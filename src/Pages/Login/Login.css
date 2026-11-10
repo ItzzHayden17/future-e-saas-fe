@@ -41,4 +41,10 @@
         scale: 1.05;
     }
 
+    .version-number{
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+    }
+
 }

@@ -279,6 +279,7 @@ return (
             </>
 
         )}
+        <div className="version-number">1.1.1</div>
 
     </div>
 );
