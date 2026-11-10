@@ -1,8 +1,10 @@
 .Home {
-  height: 100vh;
+  min-height: 100vh;
+  height: auto;
 
   .home-container {
-    height: 100%;
+    height: calc(100vh - 180px);
+    min-height: 500px;
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -22,3 +24,16 @@
     }
   }
 }
+.assessor-home-section {
+  padding: 16px 20px;
+  background: #f5f7fb;
+  border-bottom: 1px solid #ddd;
+}
+.assessor-home-section h2 { margin: 0 0 10px; font-size: 18px; }
+.assessor-home-list { display: flex; flex-wrap: wrap; gap: 10px; }
+.assessor-home-card {
+  display: flex; flex-direction: column; gap: 4px;
+  min-width: 220px; padding: 12px; background: #fff;
+  border: 1px solid #ddd; border-radius: 7px; font-size: 13px;
+}
+.assessor-home-card strong { font-size: 14px; }

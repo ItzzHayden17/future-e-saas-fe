@@ -1,7 +1,7 @@
 .Clients {
   min-height: 100vh;
   background: #f5f7fb;
-  padding-bottom: 18px;
+  padding-bottom: 25px;
 }
 
 .Clients .clients-container {
@@ -60,6 +60,11 @@
   background: #222;
 }
 
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+
 .Clients .client-search {
   width: 100%;
   box-sizing: border-box;
@@ -82,26 +87,15 @@
 
 .Clients .client-table-wrapper {
   width: 100%;
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: visible;
   background: white;
   border: 1px solid #ddd;
   border-radius: 8px;
-
-  /*
-   * Leave room for the fixed bottom scrollbar.
-   */
   margin-bottom: 20px;
-
-  /*
-   * Firefox scrollbar
-   */
   scrollbar-width: auto;
 }
 
-/*
- * Make the scrollbar itself easier to grab.
- */
 .Clients .client-table-wrapper::-webkit-scrollbar {
   height: 14px;
 }
@@ -171,6 +165,51 @@
 
 .Clients .client-table tbody tr:hover .actions-cell {
   background: #f8f8f8;
+}
+
+
+/* ============================================================
+   FIXED BOTTOM HORIZONTAL SCROLLBAR
+   Rendered through a React portal directly under document.body.
+   This keeps it fixed to the browser viewport, not the page.
+   ============================================================ */
+
+.fixed-horizontal-scroll {
+  position: fixed !important;
+  bottom: 0 !important;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  z-index: 10000;
+  background: #222;
+  border-top: 1px solid #444;
+  box-sizing: border-box;
+  scrollbar-width: auto;
+  scrollbar-color: #999 #222;
+  overscroll-behavior: contain;
+}
+
+.fixed-horizontal-scroll::-webkit-scrollbar {
+  height: 16px;
+}
+
+.fixed-horizontal-scroll::-webkit-scrollbar-track {
+  background: #222;
+}
+
+.fixed-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 10px;
+  border: 2px solid #222;
+}
+
+.fixed-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: #ccc;
+}
+
+.fixed-horizontal-scroll-inner {
+  height: 1px;
+  min-width: 100%;
 }
 
 

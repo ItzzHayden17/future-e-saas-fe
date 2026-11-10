@@ -1,154 +1,135 @@
-
 import "./ClaimsPage.css";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Navbar from "../../Components/Navbar/Navbar";
 import axios from "axios";
+import Cookies from "js-cookie";
 import { serverUrl } from "../../serverUrl";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 
-const fields = [
-  "Notification received",
-  "Type of claim",
-  "Documents received",
-  "Documents/details outstanding",
-  "Claim to insurer",
-  "Claim registered",
-  "Assessor appointed",
-  "Report received from assessor",
-  "Authorization received",
-  "AOL received/replacement",
-  "Panelbeater followed up",
-  "Payment received",
-  "Claim finalised",
+const stages = [
+  ["notificationReceived", "Notification received"],
+  ["documentsReceived", "Documents received"],
+  ["claimToInsurer", "Claim sent to insurer"],
+  ["claimRegistered", "Claim registered"],
+  ["assessorAppointed", "Assessor appointed"],
+  ["reportReceivedFromAssessor", "Assessor report received"],
+  ["authorizationReceived", "Authorisation received"],
+  ["aolReceivedReplacement", "AOL / replacement received"],
+  ["panelbeaterFollowedUp", "Panelbeater follow-up"],
+  ["iolFollowedUp", "IOL follow-up"],
+  ["paymentReceived", "Payment received"],
+  ["claimFinalised", "Claim finalised"],
 ];
 
-const fieldKey = (field) =>
-  field
-    .toLowerCase()
-    .replace(/[^a-z0-9]+(.)/g, (_, char) => char.toUpperCase())
-    .replace(/[^a-zA-Z0-9]/g, "");
-
-const emptyClaim = fields.reduce((obj, field) => {
-  obj[fieldKey(field)] = "";
-  return obj;
-}, {});
-
-// Actual workflow milestones.
-// Descriptive fields and outstanding-document notes are not milestones.
-const milestones = [
-  "notificationReceived",
-  "documentsReceived",
-  "claimToInsurer",
-  "claimRegistered",
-  "assessorAppointed",
-  "reportReceivedFromAssessor",
-  "authorizationReceived",
-  "aolReceivedReplacement",
-  "panelbeaterFollowedUp",
-  "paymentReceived",
-  "claimFinalised",
+const documentTypes = [
+  "Claim form",
+  "ID / registration documents",
+  "Driver's licence",
+  "Police report / case number",
+  "Photographs",
+  "Quotation",
+  "Supporting documents",
 ];
 
-// Interpret common text values used to indicate an incomplete milestone.
-function isCompleted(value) {
-  const text = String(value ?? "").trim();
+const blank = {
+  claimNumber: "",
+  clientName: "",
+  claimDate: "",
+  claimType: "",
+  claimStatus: "open",
+  claimCategory: "open",
+  thirdParty: false,
+  recoveryProvider: "",
+  assessorName: "",
+  assessorPhone: "",
+  assessorEmail: "",
+  assessorAppointmentDate: "",
+  documentsDetailsOutstanding: "",
+  documentFolderPath: "",
+  finalisationDate: "",
+  finalisationReason: "",
+  notes: [],
+  followUps: [],
+  documentChecklist: [],
+  milestoneDates: [],
+};
 
-  if (!text) return false;
+const isFinalised = (claim) => {
+  const value = String(claim.claimFinalised || "").trim();
+  const marked =
+    value &&
+    !/^(no|not yet|pending|false|0|not finalised|not finalized)$/i.test(
+      value
+    );
 
-  return !/^(no\b|not yet\b|pending\b|outstanding\b|incomplete\b|awaiting\b|not received\b|not appointed\b|not registered\b|not authorised\b|not authorized\b|not paid\b|not finalised\b|not finalized\b|false$|0$)/i.test(
-    text
+  return (
+    String(claim.claimStatus || "").toLowerCase() === "finalised" ||
+    Boolean(marked) ||
+    Boolean(claim.finalisationDate)
   );
-}
+};
 
-function isFinalised(claim) {
-  return isCompleted(claim.claimFinalised);
-}
-
-function hasOutstandingDocuments(claim) {
-  const value = String(
-    claim.documentsDetailsOutstanding ?? ""
-  ).trim();
-
-  if (!value) return false;
-
-  return !/^(no|none|n\/a|na|nothing|nil|no outstanding documents|no documents outstanding)$/i.test(
-    value
-  );
-}
-
-// A claim marked as finalised counts as fully complete.
-// Otherwise, count the milestones actually marked as completed.
-function getCompletedMilestones(claim) {
-  if (isFinalised(claim)) {
-    return milestones.length;
-  }
-
-  return milestones.filter((milestone) =>
-    isCompleted(claim[milestone])
-  ).length;
-}
-
-function getClaimProgress(claim) {
-  return Math.round(
-    (getCompletedMilestones(claim) / milestones.length) * 100
-  );
-}
-
-function getOverallStats(claims) {
-  const total = claims.length;
-
-  const finalised = claims.filter(isFinalised).length;
-
-  const inProgress = claims.filter(
-    (claim) =>
-      !isFinalised(claim) &&
-      getCompletedMilestones(claim) > 0
-  ).length;
-
-  const notStarted = total - finalised - inProgress;
-
-  const outstanding = claims.filter(
-    hasOutstandingDocuments
-  ).length;
-
-  const possibleMilestones = total * milestones.length;
-
-  const completedMilestones = claims.reduce(
-    (sum, claim) => sum + getCompletedMilestones(claim),
-    0
+const isThirdParty = (claim) =>
+  claim.claimCategory === "third-party" ||
+  claim.thirdParty === true ||
+  Boolean(claim.recoveryProvider) ||
+  /third.?party|recovery|webuycars/i.test(
+    String(claim.typeOfClaim || "")
   );
 
-  const overallProgress =
-    possibleMilestones === 0
-      ? 0
-      : Math.round(
-          (completedMilestones / possibleMilestones) * 100
-        );
+const completed = (claim, key) => {
+  const value = claim[key];
 
-  return {
-    total,
-    finalised,
-    inProgress,
-    notStarted,
-    outstanding,
-    overallProgress,
-  };
-}
+  return (
+    Boolean(value) &&
+    !/^(no|not yet|pending|outstanding|awaiting|false|0)$/i.test(
+      String(value).trim()
+    )
+  );
+};
+
+const progress = (claim) =>
+  isFinalised(claim)
+    ? 100
+    : Math.round(
+        (stages.filter(([key]) => completed(claim, key)).length /
+          stages.length) *
+          100
+      );
+
+const dateLabel = (value) => {
+  if (!value) return "—";
+
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString("en-ZA");
+};
 
 function ClaimsPage() {
   const [claims, setClaims] = useState([]);
+  const [tab, setTab] = useState("open");
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [editingClaim, setEditingClaim] = useState(null);
-  const [formData, setFormData] = useState({ ...emptyClaim });
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState({ ...blank });
   const [saving, setSaving] = useState(false);
-
+  const [historyClaim, setHistoryClaim] = useState(null);
+  const [newNote, setNewNote] = useState("");
+  const [stageKey, setStageKey] = useState(stages[0][0]);
+  const [stageDate, setStageDate] = useState("");
+  const [stageNote, setStageNote] = useState("");
+  const [followUpType, setFollowUpType] = useState("Panelbeater");
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpNote, setFollowUpNote] = useState("");
+  const [docDate, setDocDate] = useState("");
+  const [existingDocuments, setExistingDocuments] = useState([]);
+  const [existingMilestones, setExistingMilestones] = useState([]);
+  const [existingFollowUps, setExistingFollowUps] = useState([]);
+  const [existingNotes, setExistingNotes] = useState([]);
   const [importing, setImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
-  const [importTotal, setImportTotal] = useState(0);
-  const [importedCount, setImportedCount] = useState(0);
-  const [failedCount, setFailedCount] = useState(0);
 
   useEffect(() => {
     loadClaims();
@@ -169,65 +150,223 @@ function ClaimsPage() {
     }
   }
 
-  function openAddModal() {
-    setEditingClaim(null);
-    setFormData({ ...emptyClaim });
+  const visibleClaims = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    return claims.filter((claim) => {
+      const matchesTab =
+        tab === "open"
+          ? !isFinalised(claim) && !isThirdParty(claim)
+          : tab === "third-party"
+          ? !isFinalised(claim) && isThirdParty(claim)
+          : isFinalised(claim);
+
+      const matchesSearch =
+        !term ||
+        [
+          claim.claimNumber,
+          claim.clientName,
+          claim.claimDate,
+          claim.id,
+        ].some((value) =>
+          String(value || "").toLowerCase().includes(term)
+        );
+
+      return matchesTab && matchesSearch;
+    });
+  }, [claims, tab, search]);
+
+  function openAdd() {
+    setEditing(null);
+
+    setForm({
+      ...blank,
+      claimDate: new Date().toISOString().slice(0, 10),
+    });
+
+    setExistingDocuments([]);
+    setExistingMilestones([]);
+    setExistingFollowUps([]);
+    setExistingNotes([]);
+
     setShowModal(true);
   }
 
-  function openEditModal(claim) {
-    setEditingClaim(claim);
+  function openEdit(claim) {
+    setEditing(claim);
 
-    const newData = { ...emptyClaim };
-
-    fields.forEach((field) => {
-      const key = fieldKey(field);
-      newData[key] = claim[key] ?? "";
+    setForm({
+      ...blank,
+      ...claim,
+      documentChecklist: [],
+      followUps: [],
+      milestoneDates: [],
+      notes: [],
+      claimCategory: isThirdParty(claim)
+        ? "third-party"
+        : claim.claimCategory || "open",
     });
 
-    setFormData(newData);
+    setExistingDocuments(claim.documentChecklist || []);
+    setExistingMilestones(claim.milestoneDates || []);
+    setExistingFollowUps(claim.followUps || []);
+    setExistingNotes(claim.notes || []);
+
     setShowModal(true);
   }
 
   function closeModal() {
     setShowModal(false);
-    setEditingClaim(null);
-    setFormData({ ...emptyClaim });
+    setEditing(null);
   }
 
-  function handleChange(event) {
-    const { name, value } = event.target;
+  function change(event) {
+    const { name, value, type, checked } = event.target;
 
-    setFormData((prev) => ({
+    setForm((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: type === "checkbox" ? checked : value,
     }));
   }
 
+  function addStageUpdate() {
+    if (!stageDate) return toast.error("Select a milestone date");
+
+    const stage = stages.find(([key]) => key === stageKey);
+
+    setForm((prev) => ({
+      ...prev,
+      [stageKey]: stageDate,
+      milestoneDates: [
+        ...(prev.milestoneDates || []),
+        {
+          stage: stageKey,
+          label: stage?.[1] || stageKey,
+          date: stageDate,
+          note: stageNote.trim(),
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }));
+
+    setStageDate("");
+    setStageNote("");
+  }
+
+  function addFollowUp() {
+    if (!followUpDate) return toast.error("Select a follow-up date");
+
+    setForm((prev) => ({
+      ...prev,
+      followUps: [
+        ...(prev.followUps || []),
+        {
+          type: followUpType,
+          date: followUpDate,
+          note: followUpNote.trim(),
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }));
+
+    setFollowUpDate("");
+    setFollowUpNote("");
+  }
+
+  function addDocument(name, checked) {
+    if (!checked) return;
+
+    if (!docDate)
+      return toast.error("Select the document received date first");
+
+    setForm((prev) => ({
+      ...prev,
+      documentChecklist: [
+        ...(prev.documentChecklist || []),
+        {
+          name,
+          received: true,
+          date: docDate,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }));
+  }
+
+  function addNote() {
+    if (!newNote.trim()) return;
+
+    const entry = {
+      text: newNote.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    if (historyClaim) {
+      saveAppend(historyClaim, { notes: [entry] });
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        notes: [...(prev.notes || []), entry],
+      }));
+    }
+
+    setNewNote("");
+  }
+
+  async function saveAppend(claim, appendData) {
+    try {
+      await axios.patch(`${serverUrl}claims/${claim.id}`, appendData);
+
+      toast.success("Added to claim history");
+      setHistoryClaim(null);
+
+      await loadClaims();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not update claim history");
+    }
+  }
+
   async function saveClaim() {
+    if (!form.claimNumber.trim() || !form.clientName.trim()) {
+      return toast.error(
+        "Claim number and client name are required"
+      );
+    }
+
     try {
       setSaving(true);
 
-      if (editingClaim) {
+      const payload = {
+        ...form,
+        claimStatus: form.claimStatus || "open",
+        claimCategory: form.claimCategory,
+        thirdParty: form.claimCategory === "third-party",
+        typeOfClaim:
+          form.claimType || form.typeOfClaim || "",
+      };
+
+      if (editing) {
         await axios.patch(
-          `${serverUrl}claims/${editingClaim.id}`,
-          formData
+          `${serverUrl}claims/${editing.id}`,
+          payload
         );
 
         toast.success("Claim updated successfully");
       } else {
-        await axios.post(`${serverUrl}claims`, formData);
+        await axios.post(`${serverUrl}claims`, payload);
 
         toast.success("Claim added successfully");
       }
 
       closeModal();
+
       await loadClaims();
     } catch (error) {
       console.error(error);
 
       toast.error(
-        editingClaim
+        editing
           ? "Failed to update claim"
           : "Failed to add claim"
       );
@@ -236,12 +375,44 @@ function ClaimsPage() {
     }
   }
 
-  async function deleteClaim(claim) {
-    const confirmed = window.confirm(
-      "Delete this claim? This action cannot be undone."
+  async function finaliseClaim(claim) {
+    const reason = window.prompt(
+      "Enter the reason for finalising this claim (e.g. cash payment or correction):"
     );
 
-    if (!confirmed) return;
+    if (reason === null) return;
+
+    const date = window.prompt(
+      "Finalisation date (YYYY-MM-DD):",
+      new Date().toISOString().slice(0, 10)
+    );
+
+    if (date === null) return;
+
+    try {
+      await axios.patch(`${serverUrl}claims/${claim.id}`, {
+        claimStatus: "finalised",
+        claimFinalised: date,
+        finalisationDate: date,
+        finalisationReason: reason,
+      });
+
+      toast.success("Claim finalised");
+
+      await loadClaims();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to finalise claim");
+    }
+  }
+
+  async function deleteClaim(claim) {
+    if (
+      !window.confirm(
+        `Delete claim ${claim.claimNumber || ""}? This cannot be undone.`
+      )
+    )
+      return;
 
     try {
       await axios.delete(`${serverUrl}claims/${claim.id}`);
@@ -257,7 +428,20 @@ function ClaimsPage() {
     }
   }
 
-  function handleExcelUpload(event) {
+  function openFolder(claim) {
+    if (!claim.documentFolderPath)
+      return toast.info(
+        "No document folder is linked to this claim yet"
+      );
+
+    Cookies.set("currentDirectory", claim.documentFolderPath, {
+      expires: 30,
+    });
+
+    window.location.href = "/home";
+  }
+
+  function importExcel(event) {
     const file = event.target.files?.[0];
 
     if (!file) return;
@@ -271,90 +455,51 @@ function ClaimsPage() {
           { type: "array" }
         );
 
-        const worksheet =
-          workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(
+          workbook.Sheets[workbook.SheetNames[0]],
+          { defval: "" }
+        );
 
-        const rows = XLSX.utils.sheet_to_json(worksheet, {
-          defval: "",
-        });
-
-        if (!rows.length) {
-          toast.error("The Excel file contains no data");
-          return;
-        }
-
-        const mappedClaims = rows.map((row) => {
-          const claim = { ...emptyClaim };
-
-          fields.forEach((field) => {
-            const key = fieldKey(field);
-
-            if (row[field] !== undefined) {
-              claim[key] = String(row[field] ?? "");
-            } else if (row[key] !== undefined) {
-              claim[key] = String(row[key] ?? "");
-            }
-          });
-
-          return claim;
-        });
+        if (!rows.length)
+          return toast.error("The Excel file contains no data");
 
         setImporting(true);
-        setSaving(true);
-        setImportTotal(mappedClaims.length);
-        setImportProgress(0);
-        setImportedCount(0);
-        setFailedCount(0);
 
-        let imported = 0;
-        let failed = 0;
+        for (const row of rows) {
+          const payload = { ...blank };
 
-        for (let i = 0; i < mappedClaims.length; i++) {
-          try {
-            await axios.post(
-              `${serverUrl}claims`,
-              mappedClaims[i]
-            );
+          Object.keys(row).forEach((key) => {
+            const normalized = key
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "");
 
-            imported++;
-            setImportedCount(imported);
-          } catch (error) {
-            failed++;
-            setFailedCount(failed);
+            const map = {
+              claimnumber: "claimNumber",
+              clientname: "clientName",
+              claimdate: "claimDate",
+              typeofclaim: "claimType",
+              notificationreceived: "notificationReceived",
+              claimregistered: "claimRegistered",
+              assessorappointed: "assessorAppointed",
+              authorizationreceived: "authorizationReceived",
+              paymentreceived: "paymentReceived",
+            };
 
-            console.error(
-              "Failed to import claim:",
-              mappedClaims[i],
-              error
-            );
-          }
+            if (map[normalized])
+              payload[map[normalized]] = String(row[key] ?? "");
+          });
 
-          setImportProgress(
-            Math.round(((i + 1) / mappedClaims.length) * 100)
-          );
+          await axios.post(`${serverUrl}claims`, payload);
         }
+
+        toast.success(`${rows.length} claims imported`);
 
         await loadClaims();
-
-        if (failed === 0) {
-          toast.success(
-            `${imported} claims imported successfully`
-          );
-        } else {
-          toast.warning(
-            `${imported} imported, ${failed} failed`
-          );
-        }
       } catch (error) {
         console.error(error);
         toast.error("Failed to import Excel file");
       } finally {
-        setSaving(false);
         setImporting(false);
-        setImportProgress(0);
-        setImportTotal(0);
-        setImportedCount(0);
-        setFailedCount(0);
         event.target.value = "";
       }
     };
@@ -362,17 +507,64 @@ function ClaimsPage() {
     reader.readAsArrayBuffer(file);
   }
 
-  const term = search.trim().toLowerCase();
+  const allHistory = (claim) =>
+    [
+      ...(claim.history || []).map((item) => ({
+        ...item,
+        kind: "history",
+      })),
 
-  const filteredClaims = claims.filter((claim) =>
-    fields.some((field) =>
-      String(claim[fieldKey(field)] ?? "")
-        .toLowerCase()
-        .includes(term)
-    )
-  );
+      ...(claim.notes || []).map((item) => ({
+        ...item,
+        action: "Note",
+        details: item.text,
+        kind: "note",
+      })),
 
-  const stats = getOverallStats(claims);
+      ...(claim.milestoneDates || []).map((item) => ({
+        ...item,
+        action: item.label || "Milestone",
+        details: `${item.date}${
+          item.note ? ` — ${item.note}` : ""
+        }`,
+        kind: "milestone",
+      })),
+
+      ...(claim.followUps || []).map((item) => ({
+        ...item,
+        action: `${item.type} follow-up`,
+        details: `${item.date}${
+          item.note ? ` — ${item.note}` : ""
+        }`,
+        kind: "follow-up",
+      })),
+
+      ...(claim.documentChecklist || []).map((item) => ({
+        ...item,
+        action: "Document received",
+        details: `${item.name} — ${item.date}`,
+        kind: "document",
+      })),
+    ].sort(
+      (a, b) =>
+        new Date(
+          b.timestamp || b.createdAt || b.date || 0
+        ) -
+        new Date(
+          a.timestamp || a.createdAt || a.date || 0
+        )
+    );
+
+  const stats = {
+    total: claims.length,
+    open: claims.filter(
+      (c) => !isFinalised(c) && !isThirdParty(c)
+    ).length,
+    thirdParty: claims.filter(
+      (c) => !isFinalised(c) && isThirdParty(c)
+    ).length,
+    finalised: claims.filter(isFinalised).length,
+  };
 
   return (
     <div className="Claims">
@@ -382,22 +574,21 @@ function ClaimsPage() {
         <div className="claims-header">
           <div>
             <h2>Claims</h2>
-            <p>
-              {claims.length} claim
-              {claims.length === 1 ? "" : "s"} in total
-            </p>
+            <p>{stats.total} claims in total</p>
           </div>
 
           <div className="claims-actions">
             <label
-              className={`import-btn ${importing ? "disabled" : ""}`}
+              className={`import-btn ${
+                importing ? "disabled" : ""
+              }`}
             >
               {importing ? "Importing..." : "Import Excel"}
 
               <input
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={handleExcelUpload}
+                onChange={importExcel}
                 disabled={importing}
                 hidden
               />
@@ -405,7 +596,7 @@ function ClaimsPage() {
 
             <button
               className="add-btn"
-              onClick={openAddModal}
+              onClick={openAdd}
               disabled={importing}
             >
               + Add Claim
@@ -413,179 +604,160 @@ function ClaimsPage() {
           </div>
         </div>
 
-        {/* OWNER OVERVIEW */}
-        <section className="claims-overview">
-          <div className="claims-overview-heading">
-            <div>
-              <span className="claims-eyebrow">
-                BUSINESS OVERVIEW
-              </span>
-
-              <h3>Overall claims progress</h3>
-
-              <p>
-                Progress across all {stats.total} current{" "}
-                {stats.total === 1 ? "claim" : "claims"}.
-              </p>
-            </div>
-
-            <div className="claims-overall-percentage">
-              {stats.overallProgress}%
-            </div>
+        <div className="claims-stat-grid">
+          <div className="claims-stat-card">
+            <span className="claims-stat-label">
+              Open claims
+            </span>
+            <strong>{stats.open}</strong>
           </div>
 
-          <div
-            className="claims-overall-track"
-            role="progressbar"
-            aria-label="Overall claims progress"
-            aria-valuenow={stats.overallProgress}
-            aria-valuemin={0}
-            aria-valuemax={100}
+          <div className="claims-stat-card">
+            <span className="claims-stat-label">
+              Third-party recoveries
+            </span>
+            <strong>{stats.thirdParty}</strong>
+          </div>
+
+          <div className="claims-stat-card claims-stat-complete">
+            <span className="claims-stat-label">
+              Finalised claims
+            </span>
+            <strong>{stats.finalised}</strong>
+          </div>
+        </div>
+
+        <div className="claims-tabs">
+          <button
+            className={tab === "open" ? "active" : ""}
+            onClick={() => setTab("open")}
           >
-            <div
-              className={`claims-overall-fill ${
-                stats.overallProgress === 100 ? "complete" : ""
-              }`}
-              style={{
-                width: `${stats.overallProgress}%`,
-              }}
-            />
-          </div>
+            Open Claims ({stats.open})
+          </button>
 
-          <div className="claims-overall-footer">
-            <span>
-              {stats.finalised} of {stats.total} claims finalised
-            </span>
+          <button
+            className={tab === "third-party" ? "active" : ""}
+            onClick={() => setTab("third-party")}
+          >
+            Third-Party Recoveries ({stats.thirdParty})
+          </button>
 
-            <span>
-              {stats.overallProgress === 100
-                ? "All workflow milestones completed"
-                : "Based on completed workflow milestones"}
-            </span>
-          </div>
-
-          <div className="claims-stat-grid">
-            <div className="claims-stat-card">
-              <span className="claims-stat-label">
-                Total claims
-              </span>
-              <strong>{stats.total}</strong>
-              <span className="claims-stat-description">
-                All current claims
-              </span>
-            </div>
-
-            <div className="claims-stat-card claims-stat-complete">
-              <span className="claims-stat-label">
-                Finalised
-              </span>
-              <strong>{stats.finalised}</strong>
-              <span className="claims-stat-description">
-                Completed claims
-              </span>
-            </div>
-
-            <div className="claims-stat-card claims-stat-active">
-              <span className="claims-stat-label">
-                In progress
-              </span>
-              <strong>{stats.inProgress}</strong>
-              <span className="claims-stat-description">
-                Work has started
-              </span>
-            </div>
-
-            <div className="claims-stat-card">
-              <span className="claims-stat-label">
-                Not started
-              </span>
-              <strong>{stats.notStarted}</strong>
-              <span className="claims-stat-description">
-                No completed milestones
-              </span>
-            </div>
-
-            <div className="claims-stat-card claims-stat-outstanding">
-              <span className="claims-stat-label">
-                Outstanding details
-              </span>
-              <strong>{stats.outstanding}</strong>
-              <span className="claims-stat-description">
-                Claims with outstanding documents/details
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* EXCEL IMPORT PROGRESS */}
-        {importing && (
-          <div className="import-progress-container">
-            <div className="import-progress-header">
-              <span>Importing claims...</span>
-              <span>{importProgress}%</span>
-            </div>
-
-            <div className="import-progress-bar">
-              <div
-                className="import-progress-fill"
-                style={{ width: `${importProgress}%` }}
-              />
-            </div>
-
-            <div className="import-progress-info">
-              <span>{importedCount} imported</span>
-              <span>{failedCount} failed</span>
-              <span>{importTotal} total</span>
-            </div>
-          </div>
-        )}
+          <button
+            className={tab === "finalised" ? "active" : ""}
+            onClick={() => setTab("finalised")}
+          >
+            Finalised Claims ({stats.finalised})
+          </button>
+        </div>
 
         <input
           className="claim-search"
-          type="text"
-          placeholder="Search claims..."
+          placeholder="Search by claim number or client name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          disabled={importing}
         />
 
         <div className="claim-table-wrapper">
           <table className="claim-table">
             <thead>
               <tr>
-                {fields.map((field) => (
-                  <th key={field}>{field}</th>
-                ))}
-
+                <th>Claim date</th>
+                <th>Claim number</th>
+                <th>Folder directory</th>
+                <th>Client name</th>
+                <th>Type / recovery</th>
+                <th>Progress</th>
+                <th>Assessor appointment</th>
+                <th>History</th>
                 <th className="actions-header">Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredClaims.map((claim, index) => (
-                <tr
-                  key={claim.id || index}
-                  onDoubleClick={() => openEditModal(claim)}
-                >
-                  {fields.map((field) => (
-                    <td key={field}>
-                      {String(claim[fieldKey(field)] ?? "")}
-                    </td>
-                  ))}
+              {visibleClaims.map((claim) => (
+                <tr key={claim.id}>
+                  <td>
+                    {dateLabel(
+                      claim.claimDate || claim.createdAt
+                    )}
+                  </td>
+
+                  {/* Claim number is now plain text */}
+                  <td>{claim.claimNumber || "—"}</td>
+
+                  {/* Separate folder link */}
+                  <td>
+                    {claim.documentFolderPath ? (
+                      <button
+                        className="claim-folder-link"
+                        onClick={() => openFolder(claim)}
+                      >
+                        Open folder
+                      </button>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+
+                  <td>{claim.clientName || "—"}</td>
+
+                  <td>
+                    {claim.recoveryProvider ||
+                      claim.claimType ||
+                      claim.typeOfClaim ||
+                      "—"}
+                  </td>
+
+                  <td>
+                    <div className="claim-progress-cell">
+                      <strong>{progress(claim)}%</strong>
+
+                      <div className="claim-progress-track">
+                        <span
+                          style={{
+                            width: `${progress(claim)}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    {dateLabel(
+                      claim.assessorAppointmentDate ||
+                        claim.assessorAppointed
+                    )}
+                  </td>
+
+                  <td>
+                    <button
+                      className="history-btn"
+                      onClick={() => setHistoryClaim(claim)}
+                    >
+                      View ({allHistory(claim).length})
+                    </button>
+                  </td>
 
                   <td className="actions-cell">
                     <button
                       className="edit-btn"
-                      onClick={() => openEditModal(claim)}
-                      disabled={importing}
+                      onClick={() => openEdit(claim)}
                     >
                       Edit
                     </button>
 
+                    {tab !== "finalised" && (
+                      <button
+                        className="edit-btn"
+                        onClick={() => finaliseClaim(claim)}
+                      >
+                        Finalise
+                      </button>
+                    )}
+
                     <button
                       className="delete-btn"
                       onClick={() => deleteClaim(claim)}
-                      disabled={importing}
                     >
                       Delete
                     </button>
@@ -595,11 +767,9 @@ function ClaimsPage() {
             </tbody>
           </table>
 
-          {filteredClaims.length === 0 && (
+          {!visibleClaims.length && (
             <div className="no-claims">
-              {search
-                ? "No matching claims found"
-                : "No claims yet"}
+              No matching claims found
             </div>
           )}
         </div>
@@ -608,52 +778,380 @@ function ClaimsPage() {
       {showModal && (
         <div
           className="claim-modal-overlay"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) closeModal();
-          }}
+          onMouseDown={(e) =>
+            e.target === e.currentTarget && closeModal()
+          }
         >
-          <div className="claim-modal">
+          <div className="claim-modal claim-modal-wide">
             <div className="modal-header">
               <div>
-                <h2>
-                  {editingClaim ? "Edit Claim" : "Add Claim"}
-                </h2>
-
+                <h2>{editing ? "Edit Claim" : "Add Claim"}</h2>
                 <p>
-                  Update the claim's current progress and details.
+                  Claim details, milestones, documents and
+                  follow-ups.
                 </p>
               </div>
 
               <button
                 className="modal-close"
                 onClick={closeModal}
-                aria-label="Close"
               >
                 ×
               </button>
             </div>
 
             <div className="claim-form">
-              {fields.map((field) => {
-                const key = fieldKey(field);
+              <h3>Claim details</h3>
 
-                return (
-                  <div className="form-group" key={field}>
-                    <label htmlFor={`claim-${key}`}>
-                      {field}
-                    </label>
+              <div className="claim-form-grid">
+                <label>
+                  Claim number
+                  <input
+                    name="claimNumber"
+                    value={form.claimNumber}
+                    onChange={change}
+                  />
+                </label>
 
+                <label>
+                  Client name
+                  <input
+                    name="clientName"
+                    value={form.clientName}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Claim date
+                  <input
+                    type="date"
+                    name="claimDate"
+                    value={form.claimDate || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Claim type
+                  <input
+                    name="claimType"
+                    value={form.claimType || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Claim category
+                  <select
+                    name="claimCategory"
+                    value={form.claimCategory || "open"}
+                    onChange={change}
+                  >
+                    <option value="open">Open claim</option>
+                    <option value="third-party">
+                      Third-party recovery
+                    </option>
+                  </select>
+                </label>
+
+                <label>
+                  Recovery provider
+                  <input
+                    name="recoveryProvider"
+                    placeholder="e.g. WeBuyCars"
+                    value={form.recoveryProvider || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Outstanding documents / details
+                  <input
+                    name="documentsDetailsOutstanding"
+                    value={
+                      form.documentsDetailsOutstanding || ""
+                    }
+                    onChange={change}
+                  />
+                </label>
+
+                {/* New manual folder directory field */}
+                <label>
+                  Folder directory
+                  <input
+                    name="documentFolderPath"
+                    value={form.documentFolderPath || ""}
+                    onChange={change}
+                    placeholder="Enter the existing folder directory path"
+                  />
+                </label>
+              </div>
+
+              <h3>Assessor details</h3>
+
+              <div className="claim-form-grid">
+                <label>
+                  Assessor name
+                  <input
+                    name="assessorName"
+                    value={form.assessorName || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Phone number
+                  <input
+                    name="assessorPhone"
+                    value={form.assessorPhone || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Email address
+                  <input
+                    type="email"
+                    name="assessorEmail"
+                    value={form.assessorEmail || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Appointment date
+                  <input
+                    type="date"
+                    name="assessorAppointmentDate"
+                    value={
+                      form.assessorAppointmentDate || ""
+                    }
+                    onChange={change}
+                  />
+                </label>
+              </div>
+
+              <h3>Milestone dates and notes</h3>
+
+              <div className="claim-inline-entry">
+                <select
+                  value={stageKey}
+                  onChange={(e) => setStageKey(e.target.value)}
+                >
+                  {stages.map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  value={stageDate}
+                  onChange={(e) => setStageDate(e.target.value)}
+                />
+
+                <input
+                  placeholder="Stage note (optional)"
+                  value={stageNote}
+                  onChange={(e) => setStageNote(e.target.value)}
+                />
+
+                <button
+                  type="button"
+                  onClick={addStageUpdate}
+                >
+                  Add date
+                </button>
+              </div>
+
+              {[
+                ...existingMilestones,
+                ...(form.milestoneDates || []),
+              ].length > 0 && (
+                <ul className="claim-entry-list">
+                  {[
+                    ...existingMilestones,
+                    ...(form.milestoneDates || []),
+                  ].map((item, i) => (
+                    <li key={i}>
+                      {item.label}: {dateLabel(item.date)}{" "}
+                      {item.note && `— ${item.note}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3>Panelbeater / IOL follow-ups</h3>
+
+              <div className="claim-inline-entry">
+                <select
+                  value={followUpType}
+                  onChange={(e) =>
+                    setFollowUpType(e.target.value)
+                  }
+                >
+                  <option>Panelbeater</option>
+                  <option>IOL</option>
+                  <option>Other</option>
+                </select>
+
+                <input
+                  type="date"
+                  value={followUpDate}
+                  onChange={(e) =>
+                    setFollowUpDate(e.target.value)
+                  }
+                />
+
+                <input
+                  placeholder="Follow-up note (optional)"
+                  value={followUpNote}
+                  onChange={(e) =>
+                    setFollowUpNote(e.target.value)
+                  }
+                />
+
+                <button
+                  type="button"
+                  onClick={addFollowUp}
+                >
+                  Add follow-up
+                </button>
+              </div>
+
+              {[
+                ...existingFollowUps,
+                ...(form.followUps || []),
+              ].length > 0 && (
+                <ul className="claim-entry-list">
+                  {[
+                    ...existingFollowUps,
+                    ...(form.followUps || []),
+                  ].map((item, i) => (
+                    <li key={i}>
+                      {item.type}: {dateLabel(item.date)}{" "}
+                      {item.note && `— ${item.note}`}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3>Document checklist</h3>
+
+              <label className="document-date-label">
+                Date received for the next document
+                <input
+                  type="date"
+                  value={docDate}
+                  onChange={(e) => setDocDate(e.target.value)}
+                />
+              </label>
+
+              <div className="claim-document-grid">
+                {documentTypes.map((name) => (
+                  <label key={name}>
                     <input
-                      id={`claim-${key}`}
-                      type="text"
-                      name={key}
-                      value={formData[key] ?? ""}
-                      onChange={handleChange}
-                      placeholder={`Enter ${field.toLowerCase()}`}
+                      type="checkbox"
+                      onChange={(e) =>
+                        addDocument(name, e.target.checked)
+                      }
                     />
-                  </div>
-                );
-              })}
+                    {name}
+                  </label>
+                ))}
+              </div>
+
+              {[
+                ...existingDocuments,
+                ...(form.documentChecklist || []),
+              ].length > 0 && (
+                <ul className="claim-entry-list">
+                  {[
+                    ...existingDocuments,
+                    ...(form.documentChecklist || []),
+                  ].map((item, i) => (
+                    <li key={i}>
+                      {item.name} received{" "}
+                      {dateLabel(item.date)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <h3>Finalisation</h3>
+
+              <div className="claim-form-grid">
+                <label>
+                  Finalisation date
+                  <input
+                    type="date"
+                    name="finalisationDate"
+                    value={form.finalisationDate || ""}
+                    onChange={change}
+                  />
+                </label>
+
+                <label>
+                  Reason / explanatory note
+                  <input
+                    name="finalisationReason"
+                    value={form.finalisationReason || ""}
+                    onChange={change}
+                    placeholder="Cash payment, correction, etc."
+                  />
+                </label>
+              </div>
+
+              <h3>Add note</h3>
+
+              <div className="claim-inline-entry">
+                <input
+                  id="claim-new-note"
+                  placeholder="Enter a claim note"
+                  value={newNote}
+                  onChange={(e) =>
+                    setNewNote(e.target.value)
+                  }
+                />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newNote.trim()) {
+                      setForm((prev) => ({
+                        ...prev,
+                        notes: [
+                          ...(prev.notes || []),
+                          {
+                            text: newNote.trim(),
+                            createdAt: new Date().toISOString(),
+                          },
+                        ],
+                      }));
+
+                      setNewNote("");
+                    }
+                  }}
+                >
+                  Add note
+                </button>
+              </div>
+
+              {[
+                ...existingNotes,
+                ...(form.notes || []),
+              ].length > 0 && (
+                <ul className="claim-entry-list">
+                  {[
+                    ...existingNotes,
+                    ...(form.notes || []),
+                  ].map((item, i) => (
+                    <li key={i}>{item.text}</li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="modal-actions">
@@ -668,13 +1166,84 @@ function ClaimsPage() {
               <button
                 className="save-btn"
                 onClick={saveClaim}
-                disabled={saving || importing}
+                disabled={saving}
               >
                 {saving
                   ? "Saving..."
-                  : editingClaim
-                    ? "Update Claim"
-                    : "Add Claim"}
+                  : editing
+                  ? "Update Claim"
+                  : "Add Claim"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyClaim && (
+        <div
+          className="claim-modal-overlay"
+          onMouseDown={(e) =>
+            e.target === e.currentTarget &&
+            setHistoryClaim(null)
+          }
+        >
+          <div className="claim-modal claim-history-modal">
+            <div className="modal-header">
+              <div>
+                <h2>Claim history</h2>
+                <p>
+                  {historyClaim.claimNumber} —{" "}
+                  {historyClaim.clientName}
+                </p>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() => setHistoryClaim(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="claim-history-list">
+              {allHistory(historyClaim).map((item, i) => (
+                <div
+                  className="claim-history-item"
+                  key={i}
+                >
+                  <strong>{item.action || "Update"}</strong>
+
+                  <span>
+                    {item.details || item.text || ""}
+                  </span>
+
+                  <small>
+                    {dateLabel(
+                      item.timestamp ||
+                        item.createdAt ||
+                        item.date
+                    )}{" "}
+                    {item.user ? `· ${item.user}` : ""}
+                  </small>
+                </div>
+              ))}
+
+              {!allHistory(historyClaim).length && (
+                <p>No history recorded yet.</p>
+              )}
+            </div>
+
+            <div className="claim-inline-entry">
+              <input
+                placeholder="Add a note to the history"
+                value={newNote}
+                onChange={(e) =>
+                  setNewNote(e.target.value)
+                }
+              />
+
+              <button onClick={addNote}>
+                Add note
               </button>
             </div>
           </div>

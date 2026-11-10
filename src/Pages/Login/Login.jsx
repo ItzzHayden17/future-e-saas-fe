@@ -37,6 +37,11 @@ useEffect(() => {
                     `${serverUrl}verify-token`,
                     {
                         token: parsedUser.token
+                    },
+                    {
+                        headers: {
+                            Authorization: `Bearer ${parsedUser.token}`
+                        }
                     }
                 );
 

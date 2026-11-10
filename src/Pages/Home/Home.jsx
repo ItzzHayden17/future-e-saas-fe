@@ -10,6 +10,22 @@ import FileEditor from '../../Components/FileEditor/FileEditor'
 function Home() {
     const [user, setUser] = useState({});
     const [selectedFile, setSelectedFile] = useState(null);
+    const [assessorClaims, setAssessorClaims] = useState([]);
+
+    useEffect(() => {
+        async function loadAssessorAppointments() {
+            try {
+                const response = await axios.get(`${serverUrl}claims`);
+                const claims = Array.isArray(response.data) ? response.data : response.data.claims || [];
+                setAssessorClaims(claims.filter((claim) =>
+                    claim.assessorName || claim.assessorPhone || claim.assessorEmail || claim.assessorAppointmentDate
+                ));
+            } catch (error) {
+                console.error("Failed to load assessor appointments:", error);
+            }
+        }
+        loadAssessorAppointments();
+    }, []);
 
     // ...
 
@@ -44,7 +60,28 @@ function Home() {
         <div className="Home">
             <Navbar />
 
+                {/* <section className="assessor-home-section">
+                    <h2>Assessor appointments</h2>
+                    {assessorClaims.length === 0 ? (
+                        <p>No assessor appointments recorded.</p>
+                    ) : (
+                        <div className="assessor-home-list">
+                            {assessorClaims.map((claim) => (
+                                <div className="assessor-home-card" key={claim.id}>
+                                    <strong>{claim.claimNumber || "Claim"}</strong>
+                                    <span>{claim.clientName || "Client not specified"}</span>
+                                    <span>Appointment: {claim.assessorAppointmentDate || claim.assessorAppointed || "Not scheduled"}</span>
+                                    <span>{claim.assessorName || "Assessor not specified"}</span>
+                                    {claim.assessorPhone && <span>{claim.assessorPhone}</span>}
+                                    {claim.assessorEmail && <span>{claim.assessorEmail}</span>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </section> */}
+
             <div className="home-container">
+
 
                 <div
                     className="folder-page"

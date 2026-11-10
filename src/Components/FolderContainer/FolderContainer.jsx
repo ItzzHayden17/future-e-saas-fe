@@ -16,6 +16,8 @@ const FolderContainer = (props) => {
 
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const amendmentOpened = useRef(false);
   const typeBuffer = useRef("");
@@ -181,6 +183,51 @@ const FolderContainer = (props) => {
     }
   }
 
+  async function createFolder() {
+    const name = window.prompt("Enter the new folder name:");
+    if (!name || !name.trim()) return;
+    try {
+      await axios.post(`${serverUrl}api/folders`, { name: name.trim(), parentPath: directory });
+      const res = await axios.get(`${serverUrl}api/files`, { params: { path: directory } });
+      setData(res.data);
+      localStorage.setItem(`nodes_${directory}`, JSON.stringify(res.data));
+    } catch (error) {
+      console.error(error);
+      window.alert(error.response?.data?.error || "Failed to create folder");
+    }
+  }
+
+  async function uploadFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 35 * 1024 * 1024) {
+      window.alert("Files must be 35 MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+    try {
+      setUploading(true);
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      await axios.post(`${serverUrl}api/upload`, {
+        name: file.name, parentPath: directory, data, contentType: file.type,
+      });
+      const res = await axios.get(`${serverUrl}api/files`, { params: { path: directory } });
+      setData(res.data);
+      localStorage.setItem(`nodes_${directory}`, JSON.stringify(res.data));
+    } catch (error) {
+      console.error(error);
+      window.alert(error.response?.data?.error || "Failed to upload file");
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
   return (
     <div className="FolderContainer">
 
@@ -188,6 +235,14 @@ const FolderContainer = (props) => {
         path={directory}
         setDirectory={setDirectory}
       />
+
+      <div className="directory-actions">
+        <button type="button" onClick={createFolder}>New folder</button>
+        <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+          {uploading ? "Uploading..." : "Upload file"}
+        </button>
+        <input ref={fileInputRef} type="file" onChange={uploadFile} hidden />
+      </div>
 
       <div className="headers fixed">
 

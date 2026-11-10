@@ -1,88 +1,118 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import './Navbar.css'
-import { useState,useEffect } from 'react'
 import axios from 'axios'
 import Cookies from 'js-cookie'
 import { serverUrl } from '../../serverUrl'
-import { BrowserRouter,Routes,Route, Link, useLocation } from 'react-router-dom';
-
-
+import { Link, useLocation } from 'react-router-dom'
 
 const Navbar = () => {
+    const [user, setUser] = useState({})
+    const [isAdmin, setIsAdmin] = useState(false)
+    const [isMarketer, setIsMarketer] = useState(false)
 
-
-        const [user,setUser] = useState({})
-        const [activeLink, setActiveLink] = useState('home')
+    const location = useLocation()
 
     useEffect(() => {
-       try { 
-        
+        try {
             const userData = Cookies.get("userData")
-        
-            axios.post(`${serverUrl}verify-token`, { token: userData ? JSON.parse(userData).token : null }).then(res => {
-            console.log(res.data.status + " " + res.data.message);
-            if(res.data.status !== 'success'){
-                window.location.href = '/'
-            }else{
-                setUser(res.data.decoded)
-                console.log(res.data.decoded);
-                console.log(user);
-                
-            }
-        })
+            const token = userData ? JSON.parse(userData).token : null
+
+            axios.post(`${serverUrl}verify-token`, { token })
+                .then(res => {
+                    console.log(res.data.status + " " + res.data.message)
+
+                    if (res.data.status !== 'success') {
+                        window.location.href = '/'
+                        return
+                    }
+
+                    const decodedUser = res.data.decoded
+
+                    setUser(decodedUser)
+                    console.log(decodedUser)
+
+                    // Check if user is an admin
+                    axios.get(`${serverUrl}users`)
+                        .then(() => setIsAdmin(true))
+                        .catch(() => setIsAdmin(false))
+                })
+                .catch(error => {
+                    console.log(error)
+                    window.location.href = '/'
+                })
+
         } catch (error) {
-            console.log(error);
+            console.log(error)
             window.location.href = '/'
         }
     }, [])
 
-    const  location = useLocation()
-    const pathname = location.pathname.split('/')[1]
-    console.log(pathname);
-    
+    const isActive = (path) => {
+        return location.pathname.toLowerCase() === path.toLowerCase()
+            ? {
+                textDecoration: 'underline',
+                fontWeight: 'bold'
+            }
+            : {
+                textDecoration: 'none',
+                fontWeight: 'normal'
+            }
+    }
 
-    // console.log(pathname);
-    
+    return (
+        <div className='Navbar'>
 
-  return (
-    <div className='Navbar'>
-        <div className='user'>
-        <h1><span>Hello, </span>{user.username}</h1>
+            <div className='user'>
+                <h1>
+                    <span>Hello, </span>
+                    {user.username}
+                </h1>
+            </div>
+
+            <div className='links'>
+
+                <Link to="/home" style={isActive('/home')}>
+                    Home
+                </Link>
+
+                <Link to="/clients" style={isActive('/clients')}>
+                    Clients
+                </Link>
+
+                <Link to="/claims" style={isActive('/claims')}>
+                    Claims
+                </Link>
+
+                <Link to="/SMS" style={isActive('/SMS')}>
+                    SMS
+                </Link>
+
+                <Link to="/Email" style={isActive('/Email')}>
+                    Email
+                </Link>
+
+                <Link to="/logpage" style={isActive('/logpage')}>
+                    Logs
+                </Link>
+
+                {/* Only non-marketer admins can access Users */}
+                {!isMarketer && isAdmin && (
+                    <Link to="/users" style={isActive('/users')}>
+                        Users
+                    </Link>
+                )}
+
+            </div>
+
+            <div className='company-logo'>
+                <img
+                    src="/assets/black_logo_with_text.png"
+                    alt="Company Logo"
+                />
+            </div>
+
         </div>
-        <div className='links'>
-            <Link to="/home" style={{
-          textDecoration: location.pathname === "/home" ? "underline" : "none",
-          fontWeight: location.pathname === "/home" ? "bold" : "normal"
-        }}>Home</Link>
-            <Link to="/SMS" style={{
-          textDecoration: location.pathname === "/SMS" ? "underline" : "none",
-          fontWeight: location.pathname === "/SMS" ? "bold" : "normal"
-        }}>SMS</Link>
-            <Link to="/Email" style={{
-          textDecoration: location.pathname === "/Email" ? "underline" : "none",
-          fontWeight: location.pathname === "/SMS" ? "bold" : "normal"
-        }}>Email</Link>
-        <Link to="/clients" style={{
-          textDecoration: location.pathname === "/clients" ? "underline" : "none",
-          fontWeight: location.pathname === "/clients" ? "bold" : "normal"
-        }}>Clients
-        </Link>
-        <Link to="/logpage" style={{
-          textDecoration: location.pathname === "/logpage" ? "underline" : "none",
-          fontWeight: location.pathname === "/logpage" ? "bold" : "normal"
-        }}>Logs
-        </Link>
-        <Link to="/claims" style={{
-          textDecoration: location.pathname === "/claims" ? "underline" : "none",
-          fontWeight: location.pathname === "/claims" ? "bold" : "normal"
-        }}>Claims
-        </Link>
-        </div>
-        <div className='company-logo'>
-            <img src="/assets/black_logo_with_text.png"/>
-        </div>
-    </div>
-  )
+    )
 }
 
 export default Navbar

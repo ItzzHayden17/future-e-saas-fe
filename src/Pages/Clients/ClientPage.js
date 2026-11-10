@@ -1,5 +1,7 @@
+
 import "./ClientPage.css";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Navbar from "../../Components/Navbar/Navbar";
 import axios from "axios";
 import { serverUrl } from "../../serverUrl";
@@ -67,10 +69,97 @@ function ClientPage() {
   const [importedCount, setImportedCount] = useState(0);
   const [failedCount, setFailedCount] = useState(0);
 
+  // Fixed horizontal scrollbar references
+  const tableWrapperRef = useRef(null);
+  const fixedScrollbarRef = useRef(null);
+  const fixedScrollbarInnerRef = useRef(null);
+
+  const [hasHorizontalOverflow, setHasHorizontalOverflow] =
+    useState(false);
+
+  // Load clients
   useEffect(() => {
     loadClients();
   }, []);
 
+  // Keep the viewport-fixed scrollbar synchronised with the table.
+  // It is rendered from the first mount (even while hidden), so its ref
+  // is available when this effect measures the table.
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    const fixedScrollbar = fixedScrollbarRef.current;
+    const inner = fixedScrollbarInnerRef.current;
+
+    if (!wrapper || !fixedScrollbar || !inner) return;
+
+    let syncing = false;
+
+    const updateScrollbar = () => {
+      const hasOverflow =
+        wrapper.scrollWidth > wrapper.clientWidth + 1;
+
+      setHasHorizontalOverflow(hasOverflow);
+
+      const wrapperRect = wrapper.getBoundingClientRect();
+
+      // Match the fixed scrollbar's visible track to the table wrapper.
+      fixedScrollbar.style.left = `${wrapperRect.left}px`;
+      fixedScrollbar.style.width = `${wrapper.clientWidth}px`;
+
+      // Match its scrollable content width to the table's full width.
+      inner.style.width = `${wrapper.scrollWidth}px`;
+
+      if (!hasOverflow) {
+        fixedScrollbar.scrollLeft = 0;
+      } else {
+        fixedScrollbar.scrollLeft = wrapper.scrollLeft;
+      }
+    };
+
+    const syncFromFixed = () => {
+      if (syncing) return;
+
+      syncing = true;
+      wrapper.scrollLeft = fixedScrollbar.scrollLeft;
+      syncing = false;
+    };
+
+    const syncFromTable = () => {
+      if (syncing) return;
+
+      syncing = true;
+      fixedScrollbar.scrollLeft = wrapper.scrollLeft;
+      syncing = false;
+    };
+
+    fixedScrollbar.addEventListener("scroll", syncFromFixed);
+    wrapper.addEventListener("scroll", syncFromTable);
+    window.addEventListener("resize", updateScrollbar);
+    window.addEventListener("scroll", updateScrollbar, { passive: true });
+
+    let resizeObserver;
+
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(updateScrollbar);
+      resizeObserver.observe(wrapper);
+
+      const table = wrapper.querySelector("table");
+      if (table) resizeObserver.observe(table);
+    }
+
+    updateScrollbar();
+
+    return () => {
+      fixedScrollbar.removeEventListener("scroll", syncFromFixed);
+      wrapper.removeEventListener("scroll", syncFromTable);
+      window.removeEventListener("resize", updateScrollbar);
+      window.removeEventListener("scroll", updateScrollbar);
+
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
+  }, [clients, search]);
   async function loadClients() {
     try {
       const response = await axios.get(`${serverUrl}clients`);
@@ -147,7 +236,6 @@ function ClientPage() {
       }
 
       closeModal();
-
       await loadClients();
 
     } catch (error) {
@@ -158,6 +246,7 @@ function ClientPage() {
           ? "Failed to update client"
           : "Failed to add client"
       );
+
     } finally {
       setSaving(false);
     }
@@ -168,9 +257,7 @@ function ClientPage() {
       `Delete ${client.client || "this client"}?`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       await axios.delete(
@@ -180,9 +267,7 @@ function ClientPage() {
       toast.success("Client deleted");
 
       setClients((prev) =>
-        prev.filter(
-          (item) => item.id !== client.id
-        )
+        prev.filter((item) => item.id !== client.id)
       );
 
     } catch (error) {
@@ -194,9 +279,7 @@ function ClientPage() {
   function handleExcelUpload(event) {
     const file = event.target.files[0];
 
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     const reader = new FileReader();
 
@@ -204,37 +287,25 @@ function ClientPage() {
       try {
         const workbook = XLSX.read(
           new Uint8Array(e.target.result),
-          {
-            type: "array",
-          }
+          { type: "array" }
         );
 
         const worksheet =
-          workbook.Sheets[
-            workbook.SheetNames[0]
-          ];
+          workbook.Sheets[workbook.SheetNames[0]];
 
         const rows = XLSX.utils.sheet_to_json(
           worksheet,
-          {
-            defval: "",
-          }
+          { defval: "" }
         );
 
         if (!rows.length) {
-          toast.error(
-            "The Excel file contains no data"
-          );
-
+          toast.error("The Excel file contains no data");
           event.target.value = "";
-
           return;
         }
 
         const mappedClients = rows.map((row) => {
-          const client = {
-            ...emptyClient,
-          };
+          const client = { ...emptyClient };
 
           fields.forEach((field) => {
             const key = fieldKey(field);
@@ -250,10 +321,7 @@ function ClientPage() {
         setImporting(true);
         setSaving(true);
 
-        setImportTotal(
-          mappedClients.length
-        );
-
+        setImportTotal(mappedClients.length);
         setImportProgress(0);
         setImportedCount(0);
         setFailedCount(0);
@@ -261,13 +329,8 @@ function ClientPage() {
         let imported = 0;
         let failed = 0;
 
-        for (
-          let i = 0;
-          i < mappedClients.length;
-          i++
-        ) {
-          const client =
-            mappedClients[i];
+        for (let i = 0; i < mappedClients.length; i++) {
+          const client = mappedClients[i];
 
           try {
             await axios.post(
@@ -276,17 +339,11 @@ function ClientPage() {
             );
 
             imported++;
-
-            setImportedCount(
-              imported
-            );
+            setImportedCount(imported);
 
           } catch (error) {
             failed++;
-
-            setFailedCount(
-              failed
-            );
+            setFailedCount(failed);
 
             console.error(
               "Failed to import client:",
@@ -295,19 +352,13 @@ function ClientPage() {
             );
           }
 
-          const completed =
-            i + 1;
+          const completed = i + 1;
 
-          const percentage =
-            Math.round(
-              (completed /
-                mappedClients.length) *
-                100
-            );
-
-          setImportProgress(
-            percentage
+          const percentage = Math.round(
+            (completed / mappedClients.length) * 100
           );
+
+          setImportProgress(percentage);
         }
 
         await loadClients();
@@ -324,10 +375,7 @@ function ClientPage() {
 
       } catch (error) {
         console.error(error);
-
-        toast.error(
-          "Failed to import Excel file"
-        );
+        toast.error("Failed to import Excel file");
 
       } finally {
         setSaving(false);
@@ -345,24 +393,20 @@ function ClientPage() {
     reader.readAsArrayBuffer(file);
   }
 
-  const filteredClients =
-    clients.filter((client) => {
-      const term =
-        search.toLowerCase();
+  const filteredClients = clients.filter((client) => {
+    const term = search.toLowerCase();
 
-      return fields.some((field) => {
-        const key =
-          fieldKey(field);
+    return fields.some((field) => {
+      const key = fieldKey(field);
 
-        return String(
-          client[key] ?? ""
-        )
-          .toLowerCase()
-          .includes(term);
-      });
+      return String(client[key] ?? "")
+        .toLowerCase()
+        .includes(term);
     });
+  });
 
   return (
+    <>
     <div className="Clients">
 
       <Navbar />
@@ -376,9 +420,7 @@ function ClientPage() {
 
             <p>
               {clients.length} client
-              {clients.length === 1
-                ? ""
-                : "s"}
+              {clients.length === 1 ? "" : "s"}
             </p>
           </div>
 
@@ -391,28 +433,20 @@ function ClientPage() {
                   : "import-btn"
               }
             >
-
-              {importing
-                ? "Importing..."
-                : "Import Excel"}
+              {importing ? "Importing..." : "Import Excel"}
 
               <input
                 type="file"
                 accept=".xlsx,.xls"
-                onChange={
-                  handleExcelUpload
-                }
+                onChange={handleExcelUpload}
                 disabled={importing}
                 hidden
               />
-
             </label>
 
             <button
               className="add-btn"
-              onClick={
-                openAddModal
-              }
+              onClick={openAddModal}
               disabled={importing}
             >
               + Add Client
@@ -423,50 +457,27 @@ function ClientPage() {
         </div>
 
         {importing && (
-
           <div className="import-progress-container">
 
             <div className="import-progress-header">
-
-              <span>
-                Importing clients...
-              </span>
-
-              <span>
-                {importProgress}%
-              </span>
-
+              <span>Importing clients...</span>
+              <span>{importProgress}%</span>
             </div>
 
             <div className="import-progress-bar">
-
               <div
                 className="import-progress-fill"
-                style={{
-                  width: `${importProgress}%`,
-                }}
+                style={{ width: `${importProgress}%` }}
               />
-
             </div>
 
             <div className="import-progress-info">
-
-              <span>
-                {importedCount} imported
-              </span>
-
-              <span>
-                {failedCount} failed
-              </span>
-
-              <span>
-                {importTotal} total
-              </span>
-
+              <span>{importedCount} imported</span>
+              <span>{failedCount} failed</span>
+              <span>{importTotal} total</span>
             </div>
 
           </div>
-
         )}
 
         <input
@@ -474,125 +485,80 @@ function ClientPage() {
           type="text"
           placeholder="Search clients..."
           value={search}
-          onChange={(e) =>
-            setSearch(e.target.value)
-          }
+          onChange={(e) => setSearch(e.target.value)}
           disabled={importing}
         />
 
-        <div className="client-table-wrapper">
+        <div
+          className="client-table-wrapper"
+          ref={tableWrapperRef}
+        >
 
           <table className="client-table">
 
             <thead>
-
               <tr>
-
-                {fields.map(
-                  (field) => (
-                    <th key={field}>
-                      {field}
-                    </th>
-                  )
-                )}
+                {fields.map((field) => (
+                  <th key={field}>{field}</th>
+                ))}
 
                 <th className="actions-header">
                   Actions
                 </th>
-
               </tr>
-
             </thead>
 
             <tbody>
+              {filteredClients.map((client, index) => (
+                <tr
+                  key={
+                    client.id ||
+                    client.databaseId ||
+                    index
+                  }
+                  onDoubleClick={() => openEditModal(client)}
+                >
 
-              {filteredClients.map(
-                (client, index) => (
+                  {fields.map((field) => {
+                    const key = fieldKey(field);
 
-                  <tr
-                    key={
-                      client.id ||
-                      client.databaseId ||
-                      index
-                    }
-                    onDoubleClick={() =>
-                      openEditModal(
-                        client
-                      )
-                    }
-                  >
+                    return (
+                      <td key={field}>
+                        {String(client[key] ?? "")}
+                      </td>
+                    );
+                  })}
 
-                    {fields.map(
-                      (field) => {
+                  <td className="actions-cell">
 
-                        const key =
-                          fieldKey(
-                            field
-                          );
+                    <button
+                      className="edit-btn"
+                      onClick={() => openEditModal(client)}
+                      disabled={importing}
+                    >
+                      Edit
+                    </button>
 
-                        return (
-                          <td
-                            key={field}
-                          >
-                            {String(
-                              client[
-                                key
-                              ] ?? ""
-                            )}
-                          </td>
-                        );
+                    <button
+                      className="delete-btn"
+                      onClick={() => deleteClient(client)}
+                      disabled={importing}
+                    >
+                      Delete
+                    </button>
 
-                      }
-                    )}
+                  </td>
 
-                    <td className="actions-cell">
-
-                      <button
-                        className="edit-btn"
-                        onClick={() =>
-                          openEditModal(
-                            client
-                          )
-                        }
-                        disabled={
-                          importing
-                        }
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        className="delete-btn"
-                        onClick={() =>
-                          deleteClient(
-                            client
-                          )
-                        }
-                        disabled={
-                          importing
-                        }
-                      >
-                        Delete
-                      </button>
-
-                    </td>
-
-                  </tr>
-
-                )
-              )}
-
+                </tr>
+              ))}
             </tbody>
 
           </table>
 
-          {filteredClients.length ===
-            0 && (
-
+          {filteredClients.length === 0 && (
             <div className="no-clients">
               No clients found
             </div>
-
           )}
 
         </div>
@@ -600,68 +566,43 @@ function ClientPage() {
       </div>
 
       {showModal && (
-
         <div className="client-modal-overlay">
 
           <div className="client-modal">
 
             <div className="modal-header">
-
               <h2>
-                {editingClient
-                  ? "Edit Client"
-                  : "Add Client"}
+                {editingClient ? "Edit Client" : "Add Client"}
               </h2>
 
               <button
                 className="modal-close"
-                onClick={
-                  closeModal
-                }
+                onClick={closeModal}
               >
                 ×
               </button>
-
             </div>
 
             <div className="client-form">
 
-              {fields.map(
-                (field) => {
+              {fields.map((field) => {
+                const key = fieldKey(field);
 
-                  const key =
-                    fieldKey(field);
+                return (
+                  <div className="form-group" key={field}>
 
-                  return (
+                    <label>{field}</label>
 
-                    <div
-                      className="form-group"
-                      key={field}
-                    >
+                    <input
+                      type="text"
+                      name={key}
+                      value={formData[key] ?? ""}
+                      onChange={handleChange}
+                    />
 
-                      <label>
-                        {field}
-                      </label>
-
-                      <input
-                        type="text"
-                        name={key}
-                        value={
-                          formData[
-                            key
-                          ] ?? ""
-                        }
-                        onChange={
-                          handleChange
-                        }
-                      />
-
-                    </div>
-
-                  );
-
-                }
-              )}
+                  </div>
+                );
+              })}
 
             </div>
 
@@ -669,18 +610,14 @@ function ClientPage() {
 
               <button
                 className="cancel-btn"
-                onClick={
-                  closeModal
-                }
+                onClick={closeModal}
               >
                 Cancel
               </button>
 
               <button
                 className="save-btn"
-                onClick={
-                  saveClient
-                }
+                onClick={saveClient}
                 disabled={saving}
               >
                 {saving
@@ -695,10 +632,28 @@ function ClientPage() {
           </div>
 
         </div>
-
       )}
 
     </div>
+
+    {typeof document !== "undefined" &&
+      createPortal(
+        <div
+          className="fixed-horizontal-scroll"
+          ref={fixedScrollbarRef}
+          style={{
+            display:
+              hasHorizontalOverflow && !showModal ? "block" : "none",
+          }}
+        >
+          <div
+            className="fixed-horizontal-scroll-inner"
+            ref={fixedScrollbarInnerRef}
+          />
+        </div>,
+        document.body
+      )}
+    </>
   );
 }
 

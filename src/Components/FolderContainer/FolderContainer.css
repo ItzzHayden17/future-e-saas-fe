@@ -68,3 +68,6 @@ p {
     }
     
 }
+.directory-actions { display:flex; gap:8px; padding:10px 12px; }
+.directory-actions button { border:1px solid #ccc; background:#fff; border-radius:6px; padding:8px 12px; cursor:pointer; }
+.directory-actions button:disabled { opacity:.6; cursor:wait; }

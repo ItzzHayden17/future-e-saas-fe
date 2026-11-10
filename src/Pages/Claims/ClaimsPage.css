@@ -643,3 +643,34 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Outstanding claim workflow additions */
+.Claims .claims-tabs { display:flex; gap:8px; flex-wrap:wrap; margin: 14px 0; }
+.Claims .claims-tabs button { border:1px solid #ddd; background:#fff; padding:10px 15px; border-radius:7px; cursor:pointer; font-weight:600; }
+.Claims .claims-tabs button.active { background:#000; color:#fff; border-color:#000; }
+.Claims .claim-progress-cell { min-width:110px; display:flex; align-items:center; gap:8px; }
+.Claims .claim-progress-track { width:65px; height:7px; border-radius:8px; background:#e8e8e8; overflow:hidden; }
+.Claims .claim-progress-track span { display:block; height:100%; background:#5b45d6; }
+.Claims .claim-folder-link, .Claims .history-btn { border:0; background:none; color:#5140bd; text-decoration:underline; cursor:pointer; font:inherit; font-weight:600; padding:0; }
+.Claims .claim-modal-wide { width:min(1000px, 94vw); max-height:90vh; overflow:auto; }
+.Claims .claim-modal-wide .claim-form { display:block; }
+.Claims .claim-modal-wide .claim-form h3 { margin:22px 0 10px; font-size:15px; border-bottom:1px solid #e5e5e5; padding-bottom:7px; }
+.Claims .claim-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.Claims .claim-form-grid label, .Claims .document-date-label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; }
+.Claims .claim-form-grid input, .claim-inline-entry input, .claim-inline-entry select, .document-date-label input { width:100%; min-width:0; box-sizing:border-box; border:1px solid #d7d7d7; border-radius:6px; padding:10px; font:inherit; background:white; }
+.Claims .claim-inline-entry { display:flex; gap:8px; align-items:center; margin:10px 0; }
+.Claims .claim-inline-entry button { border:0; border-radius:6px; background:#111; color:white; padding:10px 14px; cursor:pointer; white-space:nowrap; }
+.Claims .claim-document-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0; }
+.Claims .claim-document-grid label { display:flex; align-items:center; gap:8px; font-size:13px; }
+.Claims .claim-entry-list { margin:8px 0; padding-left:20px; color:#555; font-size:13px; }
+.Claims .claim-history-modal { width:min(700px,94vw); max-height:85vh; overflow:auto; }
+.Claims .claim-history-list { max-height:48vh; overflow:auto; }
+.Claims .claim-history-item { display:flex; flex-direction:column; gap:4px; border-bottom:1px solid #eee; padding:12px 0; }
+.Claims .claim-history-item span { white-space:pre-wrap; }
+.Claims .claim-history-item small { color:#888; }
+@media(max-width:700px) {
+  .Claims .claim-form-grid, .Claims .claim-document-grid { grid-template-columns:1fr; }
+  .Claims .claim-inline-entry { flex-direction:column; align-items:stretch; }
+  .Claims .claims-tabs { flex-direction:column; }
+}

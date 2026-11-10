@@ -13,6 +13,8 @@ import { useEffect } from 'react';
 import ClientPage from './Pages/Clients/ClientPage';
 import LogsPage from './Pages/Log/LogsPage';
 import ClaimsPage from './Pages/Claims/ClaimsPage';
+import SessionTimeout from './Components/SessionTimeout/SessionTimeout';
+import UsersPage from './Pages/Users/UsersPage';
 
 
 function App() {
@@ -21,6 +23,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+      <SessionTimeout>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
@@ -29,7 +32,9 @@ function App() {
         <Route path="/clients" element={<ProtectedRoute><ClientPage/></ProtectedRoute>} />
         <Route path="/logpage" element={<ProtectedRoute><LogsPage/></ProtectedRoute>} />
         <Route path="/claims" element={<ProtectedRoute><ClaimsPage/></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute><UsersPage /></ProtectedRoute>} />
       </Routes>
+      </SessionTimeout>
       </BrowserRouter>
       <ToastContainer />
       
